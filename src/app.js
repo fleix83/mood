@@ -11,12 +11,31 @@ function todayStr() {
   ].join("-");
 }
 
+// Lokaler Zeitstempel ohne Zeitzone, passend zum lokalen Datum.
+function nowStr() {
+  const d = new Date();
+  return (
+    todayStr() +
+    "T" +
+    [d.getHours(), d.getMinutes(), d.getSeconds()]
+      .map((n) => String(n).padStart(2, "0"))
+      .join(":")
+  );
+}
+
 function formatDate(dateStr) {
   return new Date(dateStr + "T12:00:00").toLocaleDateString("de-CH", {
     weekday: "long",
     month: "long",
     day: "numeric",
     year: "numeric",
+  });
+}
+
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString("de-CH", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -38,9 +57,11 @@ function el(tag, attrs = {}, ...children) {
 
 async function renderDay(date) {
   const isToday = date === todayStr();
-  const [options, entry] = await Promise.all([api.options(), api.entry(date)]);
-  const existing = new Map(entry.map((v) => [v.optionId, v]));
-  const hasEntry = entry.length > 0;
+  const [options, entries] = await Promise.all([
+    api.options(),
+    api.entriesForDay(date),
+  ]);
+  const optById = new Map(options.map((o) => [o.id, o]));
 
   view.replaceChildren(
     el(
@@ -62,10 +83,10 @@ async function renderDay(date) {
     return;
   }
 
-  const form = el("div");
-
-  function showForm() {
-    form.replaceChildren();
+  // Formular für einen Eintrag: ohne entry → neuer Eintrag, sonst bearbeiten.
+  function entryForm(entry) {
+    const wrap = el("div", { class: "entry-form" });
+    const existing = new Map((entry?.values || []).map((v) => [v.optionId, v]));
     const inputs = [];
 
     for (const opt of options) {
@@ -87,7 +108,7 @@ async function renderDay(date) {
       note.value = current.note;
       inputs.push({ optionId: opt.id, slider, note });
 
-      form.append(
+      wrap.append(
         el(
           "div",
           { class: "card" },
@@ -115,42 +136,124 @@ async function renderDay(date) {
         class: "btn",
         onclick: async () => {
           saveBtn.disabled = true;
-          await api.saveEntry(
-            date,
-            inputs.map((i) => ({
-              optionId: i.optionId,
-              value: Number(i.slider.value),
-              note: i.note.value.trim(),
-            }))
-          );
-          saveBtn.disabled = false;
-          saveBtn.classList.add("saved");
-          saveBtn.textContent = "Gespeichert ✓";
-          setTimeout(() => {
-            saveBtn.classList.remove("saved");
-            saveBtn.textContent = "Speichern";
-          }, 1600);
+          const values = inputs.map((i) => ({
+            optionId: i.optionId,
+            value: Number(i.slider.value),
+            note: i.note.value.trim(),
+          }));
+          if (entry) await api.updateEntry(entry.id, values);
+          else await api.addEntry(date, nowStr(), values);
+          renderDay(date);
         },
       },
       "Speichern"
     );
-    form.append(el("div", { class: "form-actions" }, saveBtn));
-  }
-
-  if (hasEntry) {
-    showForm();
-  } else {
-    form.append(
+    wrap.append(
       el(
         "div",
-        { class: "empty-day" },
-        el("button", { class: "big-plus", onclick: showForm, "aria-label": "Neuer Eintrag" }, "+"),
-        el("p", {}, "Wie war dein Tag?")
+        { class: "form-actions" },
+        el("button", { class: "btn-ghost", onclick: () => renderDay(date) }, "Abbrechen"),
+        saveBtn
       )
     );
+    return wrap;
   }
 
-  view.append(form);
+  // Gespeicherter Eintrag als kompakte Karte mit Uhrzeit.
+  function entryCard(entry) {
+    const card = el(
+      "div",
+      { class: "card entry-card" },
+      el(
+        "div",
+        { class: "entry-head" },
+        el("span", { class: "entry-time" }, formatTime(entry.createdAt) + " Uhr"),
+        el(
+          "span",
+          { class: "entry-actions" },
+          el(
+            "button",
+            {
+              class: "btn-ghost",
+              onclick: () => card.replaceWith(entryForm(entry)),
+            },
+            "Bearbeiten"
+          ),
+          el(
+            "button",
+            {
+              class: "btn-ghost",
+              onclick: async () => {
+                if (confirm("Diesen Eintrag löschen?")) {
+                  await api.deleteEntry(entry.id);
+                  renderDay(date);
+                }
+              },
+            },
+            "Löschen"
+          )
+        )
+      ),
+      el(
+        "div",
+        { class: "day-row-values" },
+        ...entry.values.map((v) => {
+          const opt = optById.get(v.optionId);
+          return el(
+            "span",
+            {},
+            el("span", { class: "dot", style: `background:${opt?.color || "#ccc"}` }),
+            `${opt?.name || "?"} ${v.value}`
+          );
+        })
+      ),
+      ...entry.values
+        .filter((v) => v.note)
+        .map((v) =>
+          el(
+            "div",
+            { class: "day-row-note" },
+            `${optById.get(v.optionId)?.name || ""}: ${v.note}`
+          )
+        )
+    );
+    return card;
+  }
+
+  for (const entry of entries) view.append(entryCard(entry));
+
+  // Neue Einträge nur auf dem aktuellen Tag.
+  if (isToday) {
+    if (entries.length === 0) {
+      const empty = el(
+        "div",
+        { class: "empty-day" },
+        el(
+          "button",
+          {
+            class: "big-plus",
+            onclick: () => empty.replaceWith(entryForm(null)),
+            "aria-label": "Neuer Eintrag",
+          },
+          "+"
+        ),
+        el("p", {}, "Wie war dein Tag?")
+      );
+      view.append(empty);
+    } else {
+      const addBtn = el(
+        "button",
+        {
+          class: "btn btn-secondary add-entry",
+          onclick: () => addBtn.replaceWith(entryForm(null)),
+        },
+        "+ Neuer Eintrag"
+      );
+      view.append(addBtn);
+    }
+  } else if (entries.length === 0) {
+    view.append(el("p", { class: "empty-hint" }, "Keine Einträge an diesem Tag."));
+  }
 }
 
 // --- Verlauf ---
@@ -179,20 +282,20 @@ function buildChart(options, history) {
   const H = 280;
   const pad = { top: 16, right: 16, bottom: 30, left: 30 };
 
-  const dates = [...new Set(history.map((h) => h.date))].sort();
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
 
-  const t0 = new Date(dates[0] + "T12:00:00").getTime();
-  const t1 = new Date(dates[dates.length - 1] + "T12:00:00").getTime();
+  // Jeder Eintrag ist ein Punkt, positioniert nach seinem Zeitstempel.
+  const times = history.map((h) => new Date(h.createdAt).getTime());
+  const t0 = Math.min(...times);
+  const t1 = Math.max(...times);
   const span = Math.max(1, t1 - t0);
-  const x = (date) =>
-    dates.length === 1
+  const single = t1 === t0;
+  const x = (t) =>
+    single
       ? (W - pad.left - pad.right) / 2 + pad.left
-      : pad.left +
-        ((new Date(date + "T12:00:00").getTime() - t0) / span) *
-          (W - pad.left - pad.right);
+      : pad.left + ((t - t0) / span) * (W - pad.left - pad.right);
   const y = (v) => pad.top + (1 - v / 10) * (H - pad.top - pad.bottom);
 
   // Hilfslinien bei 0 / 5 / 10
@@ -216,6 +319,7 @@ function buildChart(options, history) {
   }
 
   // x-Beschriftung: erstes und letztes Datum
+  const dates = [...new Set(history.map((h) => h.date))].sort();
   for (const [date, anchor, xpos] of [
     [dates[0], "start", pad.left],
     [dates[dates.length - 1], "end", W - pad.right],
@@ -231,14 +335,15 @@ function buildChart(options, history) {
       { month: "short", day: "numeric" }
     );
     svg.append(label);
-    if (dates.length === 1) break;
+    if (single || dates.length === 1) break;
   }
 
   for (const opt of options) {
     const points = history
       .filter((h) => h.optionId === opt.id)
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .map((h) => ({ x: +x(h.date).toFixed(1), y: +y(h.value).toFixed(1) }));
+      .map((h) => ({ t: new Date(h.createdAt).getTime(), v: h.value }))
+      .sort((a, b) => a.t - b.t)
+      .map((p) => ({ x: +x(p.t).toFixed(1), y: +y(p.v).toFixed(1) }));
     if (points.length === 0) continue;
 
     const path = document.createElementNS(svgNS, "path");
@@ -270,7 +375,7 @@ async function renderHistory() {
       "div",
       { class: "page-head" },
       el("h1", {}, "Verlauf"),
-      el("p", { class: "subtitle" }, "Alle Tage auf einen Blick")
+      el("p", { class: "subtitle" }, "Alle Einträge auf einen Blick")
     )
   );
 
@@ -294,26 +399,47 @@ async function renderHistory() {
 
   view.append(el("div", { class: "chart-card" }, legend, buildChart(options, history)));
 
-  // Tagesliste, neueste zuerst
-  const byDate = new Map();
+  // Liste aller Einträge, neueste zuerst, gruppiert nach Tag.
+  const byEntry = new Map();
   for (const h of history) {
-    if (!byDate.has(h.date)) byDate.set(h.date, []);
-    byDate.get(h.date).push(h);
+    if (!byEntry.has(h.entryId)) {
+      byEntry.set(h.entryId, {
+        id: h.entryId,
+        date: h.date,
+        createdAt: h.createdAt,
+        values: [],
+      });
+    }
+    byEntry.get(h.entryId).values.push(h);
   }
   const optName = new Map(options.map((o) => [o.id, o]));
 
-  for (const date of [...byDate.keys()].sort().reverse()) {
-    const values = byDate.get(date);
-    const notes = values.filter((v) => v.note);
-    view.append(
-      el(
+  const entriesDesc = [...byEntry.values()].sort(
+    (a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id
+  );
+
+  let lastDate = null;
+  let dayBox = null;
+  for (const entry of entriesDesc) {
+    if (entry.date !== lastDate) {
+      lastDate = entry.date;
+      dayBox = el(
         "a",
-        { class: "day-row", href: `#/day/${date}` },
-        el("div", { class: "day-row-date" }, formatDate(date)),
+        { class: "day-row", href: `#/day/${entry.date}` },
+        el("div", { class: "day-row-date" }, formatDate(entry.date))
+      );
+      view.append(dayBox);
+    }
+    const notes = entry.values.filter((v) => v.note);
+    dayBox.append(
+      el(
+        "div",
+        { class: "entry-row" },
+        el("div", { class: "entry-time" }, formatTime(entry.createdAt) + " Uhr"),
         el(
           "div",
           { class: "day-row-values" },
-          ...values.map((v) => {
+          ...entry.values.map((v) => {
             const opt = optName.get(v.optionId);
             return el(
               "span",

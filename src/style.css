@@ -286,7 +286,39 @@ input[type="range"]::-moz-range-thumb {
 .form-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
   margin-top: 6px;
+}
+
+/* --- Einträge auf der Tagesseite --- */
+
+.entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.entry-time {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-soft);
+}
+
+.entry-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.add-entry {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.entry-form {
+  margin-bottom: 14px;
 }
 
 /* --- History --- */
@@ -361,6 +393,19 @@ input[type="range"]::-moz-range-thumb {
   font-size: 14px;
   color: var(--text-soft);
   font-style: italic;
+}
+
+.entry-row {
+  padding-top: 10px;
+}
+
+.entry-row + .entry-row {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.entry-row .entry-time {
+  margin-bottom: 4px;
 }
 
 /* --- Settings --- */
