@@ -173,6 +173,35 @@ h1 {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+  margin-left: auto;
+}
+
+/* Kreis-Button zum Auslassen einer Option in diesem Eintrag */
+.skip-toggle {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-left: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.skip-toggle.off {
+  background: transparent;
+  border-color: var(--line);
+}
+
+.card.skipped {
+  opacity: 0.5;
+}
+
+.card.skipped input[type="range"],
+.card.skipped .note-field {
+  pointer-events: none;
 }
 
 input[type="range"] {
