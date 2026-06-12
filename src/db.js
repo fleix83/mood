@@ -25,16 +25,49 @@ async function migrate() {
         position INTEGER NOT NULL DEFAULT 0,
         archived INTEGER NOT NULL DEFAULT 0
       )`,
-      `CREATE TABLE IF NOT EXISTS entry_values (
+      `CREATE TABLE IF NOT EXISTS entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )`,
+      `CREATE TABLE IF NOT EXISTS entry_values (
+        entry_id INTEGER NOT NULL REFERENCES entries(id),
         option_id INTEGER NOT NULL REFERENCES options(id),
         value INTEGER NOT NULL,
         note TEXT NOT NULL DEFAULT '',
-        PRIMARY KEY (date, option_id)
+        PRIMARY KEY (entry_id, option_id)
       )`,
     ],
     "write"
   );
+
+  // Altes Schema (ein Eintrag pro Tag, direkt mit Datum verknüpft) auf die
+  // neue entries-Tabelle umziehen. Alte Einträge bekommen 12:00 als Uhrzeit.
+  const legacy = await db.execute(
+    "SELECT 1 FROM pragma_table_info('entry_values') WHERE name = 'date'"
+  );
+  if (legacy.rows.length > 0) {
+    await db.batch(
+      [
+        `ALTER TABLE entry_values RENAME TO entry_values_legacy`,
+        `CREATE TABLE entry_values (
+          entry_id INTEGER NOT NULL REFERENCES entries(id),
+          option_id INTEGER NOT NULL REFERENCES options(id),
+          value INTEGER NOT NULL,
+          note TEXT NOT NULL DEFAULT '',
+          PRIMARY KEY (entry_id, option_id)
+        )`,
+        `INSERT INTO entries (date, created_at)
+         SELECT DISTINCT date, date || 'T12:00:00' FROM entry_values_legacy`,
+        `INSERT INTO entry_values (entry_id, option_id, value, note)
+         SELECT en.id, l.option_id, l.value, l.note
+         FROM entry_values_legacy l
+         JOIN entries en ON en.date = l.date`,
+        `DROP TABLE entry_values_legacy`,
+      ],
+      "write"
+    );
+  }
 
   const { rows } = await db.execute("SELECT COUNT(*) AS n FROM options");
   if (Number(rows[0].n) === 0) {
@@ -98,43 +131,83 @@ export async function removeOption(id) {
   });
 }
 
-export async function entry(date) {
+// Alle Einträge eines Tages, älteste zuerst.
+export async function entriesForDay(date) {
   const { rows } = await db.execute({
-    sql: "SELECT option_id, value, note FROM entry_values WHERE date = ?",
+    sql: `SELECT en.id AS entry_id, en.created_at, v.option_id, v.value, v.note
+          FROM entries en
+          LEFT JOIN entry_values v ON v.entry_id = en.id
+          WHERE en.date = ?
+          ORDER BY en.created_at, en.id`,
     args: [date],
   });
-  return rows.map((r) => ({
-    optionId: Number(r.option_id),
-    value: Number(r.value),
-    note: r.note,
-  }));
+  const byId = new Map();
+  for (const r of rows) {
+    const id = Number(r.entry_id);
+    if (!byId.has(id)) byId.set(id, { id, createdAt: r.created_at, values: [] });
+    if (r.option_id != null) {
+      byId.get(id).values.push({
+        optionId: Number(r.option_id),
+        value: Number(r.value),
+        note: r.note,
+      });
+    }
+  }
+  return [...byId.values()];
 }
 
-export async function saveEntry(date, values) {
-  const stmts = values.map((v) => ({
-    sql: `INSERT INTO entry_values (date, option_id, value, note)
+function valueStmts(entryId, values) {
+  return values.map((v) => ({
+    sql: `INSERT INTO entry_values (entry_id, option_id, value, note)
           VALUES (?, ?, ?, ?)
-          ON CONFLICT (date, option_id)
+          ON CONFLICT (entry_id, option_id)
           DO UPDATE SET value = excluded.value, note = excluded.note`,
     args: [
-      date,
+      entryId,
       Number(v.optionId),
       Math.max(0, Math.min(10, Number(v.value) || 0)),
       String(v.note || ""),
     ],
   }));
-  if (stmts.length > 0) await db.batch(stmts, "write");
 }
 
+export async function addEntry(date, createdAt, values) {
+  const result = await db.execute({
+    sql: "INSERT INTO entries (date, created_at) VALUES (?, ?) RETURNING id",
+    args: [date, createdAt],
+  });
+  const id = Number(result.rows[0].id);
+  if (values.length > 0) await db.batch(valueStmts(id, values), "write");
+  return id;
+}
+
+export async function updateEntry(entryId, values) {
+  if (values.length > 0) await db.batch(valueStmts(entryId, values), "write");
+}
+
+export async function deleteEntry(entryId) {
+  await db.batch(
+    [
+      { sql: "DELETE FROM entry_values WHERE entry_id = ?", args: [entryId] },
+      { sql: "DELETE FROM entries WHERE id = ?", args: [entryId] },
+    ],
+    "write"
+  );
+}
+
+// Jeder einzelne Eintrag als Punkt auf der Zeitachse.
 export async function history() {
   const { rows } = await db.execute(
-    `SELECT e.date, e.option_id, e.value, e.note
-     FROM entry_values e
-     JOIN options o ON o.id = e.option_id AND o.archived = 0
-     ORDER BY e.date`
+    `SELECT en.date, en.created_at, en.id AS entry_id, v.option_id, v.value, v.note
+     FROM entry_values v
+     JOIN entries en ON en.id = v.entry_id
+     JOIN options o ON o.id = v.option_id AND o.archived = 0
+     ORDER BY en.created_at, en.id`
   );
   return rows.map((r) => ({
+    entryId: Number(r.entry_id),
     date: r.date,
+    createdAt: r.created_at,
     optionId: Number(r.option_id),
     value: Number(r.value),
     note: r.note,
