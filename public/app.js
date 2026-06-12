@@ -36,7 +36,7 @@ function todayStr() {
 }
 
 function formatDate(dateStr) {
-  return new Date(dateStr + "T12:00:00").toLocaleDateString(undefined, {
+  return new Date(dateStr + "T12:00:00").toLocaleDateString("de-CH", {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -70,7 +70,7 @@ async function renderDay(date) {
     el(
       "div",
       { class: "page-head" },
-      el("h1", {}, isToday ? "Today" : formatDate(date)),
+      el("h1", {}, isToday ? "Heute" : formatDate(date)),
       isToday ? el("p", { class: "subtitle" }, formatDate(date)) : null
     )
   );
@@ -80,7 +80,7 @@ async function renderDay(date) {
       el(
         "p",
         { class: "empty-hint" },
-        "No entry options yet. Add some in Settings."
+        "Noch keine Optionen. Füge welche in den Einstellungen hinzu."
       )
     );
     return;
@@ -106,7 +106,7 @@ async function renderDay(date) {
       const note = el("textarea", {
         class: "note-field",
         rows: "2",
-        placeholder: "Add a note…",
+        placeholder: "Notiz hinzufügen …",
       });
       note.value = current.note;
       inputs.push({ optionId: opt.id, slider, note });
@@ -149,14 +149,14 @@ async function renderDay(date) {
           );
           saveBtn.disabled = false;
           saveBtn.classList.add("saved");
-          saveBtn.textContent = "Saved ✓";
+          saveBtn.textContent = "Gespeichert ✓";
           setTimeout(() => {
             saveBtn.classList.remove("saved");
-            saveBtn.textContent = "Save";
+            saveBtn.textContent = "Speichern";
           }, 1600);
         },
       },
-      "Save"
+      "Speichern"
     );
     form.append(el("div", { class: "form-actions" }, saveBtn));
   }
@@ -168,8 +168,8 @@ async function renderDay(date) {
       el(
         "div",
         { class: "empty-day" },
-        el("button", { class: "big-plus", onclick: showForm, "aria-label": "New entry" }, "+"),
-        el("p", {}, "How was your day?")
+        el("button", { class: "big-plus", onclick: showForm, "aria-label": "Neuer Eintrag" }, "+"),
+        el("p", {}, "Wie war dein Tag?")
       )
     );
   }
@@ -251,7 +251,7 @@ function buildChart(options, history) {
     label.setAttribute("font-size", "11");
     label.setAttribute("fill", "#8a8378");
     label.textContent = new Date(date + "T12:00:00").toLocaleDateString(
-      undefined,
+      "de-CH",
       { month: "short", day: "numeric" }
     );
     svg.append(label);
@@ -293,13 +293,13 @@ async function renderHistory() {
     el(
       "div",
       { class: "page-head" },
-      el("h1", {}, "History"),
-      el("p", { class: "subtitle" }, "Every day, at a glance")
+      el("h1", {}, "Verlauf"),
+      el("p", { class: "subtitle" }, "Alle Tage auf einen Blick")
     )
   );
 
   if (history.length === 0) {
-    view.append(el("p", { class: "empty-hint" }, "No entries yet."));
+    view.append(el("p", { class: "empty-hint" }, "Noch keine Einträge."));
     return;
   }
 
@@ -364,8 +364,8 @@ async function renderSettings() {
     el(
       "div",
       { class: "page-head" },
-      el("h1", {}, "Settings"),
-      el("p", { class: "subtitle" }, "What do you want to track?")
+      el("h1", {}, "Einstellungen"),
+      el("p", { class: "subtitle" }, "Was möchtest du erfassen?")
     )
   );
 
@@ -394,19 +394,19 @@ async function renderSettings() {
           {
             class: "btn-ghost",
             onclick: async () => {
-              if (confirm(`Remove “${opt.name}”? Past entries stay in the database.`)) {
+              if (confirm(`„${opt.name}“ entfernen? Frühere Einträge bleiben erhalten.`)) {
                 await api.removeOption(opt.id);
                 renderSettings();
               }
             },
           },
-          "Remove"
+          "Entfernen"
         )
       )
     );
   }
 
-  const newName = el("input", { type: "text", placeholder: "New option, e.g. Focus" });
+  const newName = el("input", { type: "text", placeholder: "Neue Option, z. B. Fokus" });
   const add = async () => {
     if (!newName.value.trim()) return;
     await api.addOption(newName.value.trim(), randomWarmColor());
@@ -414,11 +414,11 @@ async function renderSettings() {
   };
   newName.addEventListener("keydown", (e) => e.key === "Enter" && add());
   view.append(
-    el("div", { class: "add-row" }, newName, el("button", { class: "btn btn-secondary", onclick: add }, "Add")),
+    el("div", { class: "add-row" }, newName, el("button", { class: "btn btn-secondary", onclick: add }, "Hinzufügen")),
     el(
       "p",
       { class: "hint" },
-      "Each option appears on the day page with a slider (0–10) and a note field."
+      "Jede Option erscheint auf der Tagesseite mit einem Regler (0–10) und einem Notizfeld."
     )
   );
 }

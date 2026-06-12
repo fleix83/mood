@@ -1,30 +1,30 @@
 # Mood
 
-A minimal daily mood tracker. Warm, quiet, Apple-like.
+Ein minimalistischer täglicher Stimmungs-Tracker. Warm, ruhig, Apple-like.
 
-- **Today** — the default page. Tap the big **+** to create today's entry: one slider (0–10) and a note field per option. Entries can be edited any time.
-- **History** — all entries in one seamless graph, plus a day-by-day list. Tap a day to edit it.
-- **Settings** — add, rename, recolor, or remove the options you track.
+- **Heute** — die Startseite. Tippe auf das grosse **+**, um den heutigen Eintrag zu erstellen: pro Option ein Regler (0–10) und ein Notizfeld. Einträge lassen sich jederzeit bearbeiten.
+- **Verlauf** — alle Einträge in einer nahtlosen Grafik, dazu eine Liste aller Tage. Tippe auf einen Tag, um ihn zu bearbeiten.
+- **Einstellungen** — Optionen hinzufügen, umbenennen, umfärben oder entfernen.
 
-## Setup
+## Einrichtung
 
 ```sh
 npm install
-cp .env.example .env   # then paste your Turso auth token into .env
+cp .env.example .env   # dann den Turso-Token in .env eintragen
 npm start
 ```
 
-Open http://localhost:3000.
+Danach http://localhost:3000 öffnen.
 
-Without a `TURSO_AUTH_TOKEN` the app falls back to a local SQLite file
-(`local.db`) so you can use it right away. To store data in Turso:
+Ohne `TURSO_AUTH_TOKEN` nutzt die App eine lokale SQLite-Datei (`local.db`),
+funktioniert also sofort. Für die Speicherung in Turso:
 
 ```sh
 turso db tokens create mood
 ```
 
-and put the token in `.env`.
+und den Token in `.env` eintragen.
 
 ## Stack
 
-Node.js + Express, [@libsql/client](https://github.com/tursodatabase/libsql-client-ts) (Turso / SQLite), vanilla HTML/CSS/JS, hand-rolled SVG chart. No build step.
+Node.js + Express, [@libsql/client](https://github.com/tursodatabase/libsql-client-ts) (Turso / SQLite), Vanilla HTML/CSS/JS, handgebaute SVG-Grafik. Kein Build-Schritt.
