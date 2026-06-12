@@ -90,7 +90,12 @@ async function renderDay(date) {
     const inputs = [];
 
     for (const opt of options) {
+      const has = existing.has(opt.id);
       const current = existing.get(opt.id) || { value: 5, note: "" };
+      // Beim Bearbeiten ist eine Option ausgelassen, wenn kein Wert existiert.
+      // Bei neuen Einträgen sind zunächst alle Optionen aktiv.
+      const state = { included: entry ? has : true };
+
       const valueLabel = el("span", { class: "option-value" }, String(current.value));
       const slider = el("input", {
         type: "range",
@@ -106,28 +111,48 @@ async function renderDay(date) {
         placeholder: "Notiz hinzufügen …",
       });
       note.value = current.note;
-      inputs.push({ optionId: opt.id, slider, note });
+      inputs.push({ optionId: opt.id, slider, note, state });
 
-      wrap.append(
+      const card = el(
+        "div",
+        { class: "card" },
         el(
           "div",
-          { class: "card" },
+          { class: "option-head" },
           el(
-            "div",
-            { class: "option-head" },
-            el(
-              "span",
-              { class: "option-name" },
-              el("span", { class: "dot", style: `background:${opt.color}` }),
-              opt.name
-            ),
-            valueLabel
+            "span",
+            { class: "option-name" },
+            el("span", { class: "dot", style: `background:${opt.color}` }),
+            opt.name
           ),
-          slider,
-          el("div", { class: "range-labels" }, el("span", {}, "0"), el("span", {}, "10")),
-          note
-        )
+          valueLabel,
+          null // Platzhalter, Toggle wird unten eingehängt
+        ),
+        slider,
+        el("div", { class: "range-labels" }, el("span", {}, "0"), el("span", {}, "10")),
+        note
       );
+
+      // Kreis-Button rechts: Option für diesen Eintrag aus-/einschalten.
+      const toggle = el("button", {
+        type: "button",
+        class: "skip-toggle",
+        title: "Für diesen Eintrag auslassen",
+        "aria-label": "Für diesen Eintrag auslassen",
+      });
+      const apply = () => {
+        card.classList.toggle("skipped", !state.included);
+        toggle.classList.toggle("off", !state.included);
+        toggle.setAttribute("aria-pressed", String(!state.included));
+      };
+      toggle.addEventListener("click", () => {
+        state.included = !state.included;
+        apply();
+      });
+      card.querySelector(".option-head").append(toggle);
+      apply();
+
+      wrap.append(card);
     }
 
     const saveBtn = el(
@@ -136,11 +161,19 @@ async function renderDay(date) {
         class: "btn",
         onclick: async () => {
           saveBtn.disabled = true;
-          const values = inputs.map((i) => ({
-            optionId: i.optionId,
-            value: Number(i.slider.value),
-            note: i.note.value.trim(),
-          }));
+          const values = inputs
+            .filter((i) => i.state.included)
+            .map((i) => ({
+              optionId: i.optionId,
+              value: Number(i.slider.value),
+              note: i.note.value.trim(),
+            }));
+          if (values.length === 0) {
+            // Kein Wert ausgewählt: leeren Eintrag nicht anlegen bzw. löschen.
+            if (entry) await api.deleteEntry(entry.id);
+            renderDay(date);
+            return;
+          }
           if (entry) await api.updateEntry(entry.id, values);
           else await api.addEntry(date, nowStr(), values);
           renderDay(date);

@@ -182,7 +182,14 @@ export async function addEntry(date, createdAt, values) {
 }
 
 export async function updateEntry(entryId, values) {
-  if (values.length > 0) await db.batch(valueStmts(entryId, values), "write");
+  // Werte komplett ersetzen, damit ausgelassene Optionen verschwinden.
+  await db.batch(
+    [
+      { sql: "DELETE FROM entry_values WHERE entry_id = ?", args: [entryId] },
+      ...valueStmts(entryId, values),
+    ],
+    "write"
+  );
 }
 
 export async function deleteEntry(entryId) {
