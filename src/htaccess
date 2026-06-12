@@ -1,0 +1,11 @@
+# Empfohlen: Passwortschutz, da der Turso-Token im Browser-Code liegt.
+# Viele Hoster bieten "Verzeichnisschutz" im Control Panel an — das ist der
+# einfachste Weg. Alternativ von Hand:
+#   1) .htpasswd-Datei anlegen (Generator: https://hostingcanada.org/htpasswd-generator/)
+#   2) Den absoluten Server-Pfad unten anpassen
+#   3) Die vier Zeilen einkommentieren
+#
+# AuthType Basic
+# AuthName "Mood"
+# AuthUserFile /absoluter/pfad/zu/.htpasswd
+# Require valid-user

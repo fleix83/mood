@@ -1,16 +1,15 @@
 {
   "name": "mood",
-  "version": "1.0.0",
-  "description": "A minimal daily mood tracker",
+  "version": "2.0.0",
+  "description": "Minimalistischer täglicher Stimmungs-Tracker (statisch, Turso)",
   "type": "module",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "build": "node build.mjs"
   },
   "dependencies": {
-    "@libsql/client": "^0.14.0",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.2"
+    "@libsql/client": "^0.14.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2"
   }
 }

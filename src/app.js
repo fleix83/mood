@@ -1,30 +1,6 @@
-const view = document.getElementById("view");
+import * as api from "./db.js";
 
-const api = {
-  options: () => fetch("/api/options").then((r) => r.json()),
-  addOption: (name, color) =>
-    fetch("/api/options", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, color }),
-    }).then((r) => r.json()),
-  updateOption: (id, name, color) =>
-    fetch(`/api/options/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, color }),
-    }).then((r) => r.json()),
-  removeOption: (id) =>
-    fetch(`/api/options/${id}`, { method: "DELETE" }).then((r) => r.json()),
-  entry: (date) => fetch(`/api/entries/${date}`).then((r) => r.json()),
-  saveEntry: (date, values) =>
-    fetch(`/api/entries/${date}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ values }),
-    }).then((r) => r.json()),
-  history: () => fetch("/api/history").then((r) => r.json()),
-};
+const view = document.getElementById("view");
 
 function todayStr() {
   const d = new Date();
@@ -58,7 +34,7 @@ function el(tag, attrs = {}, ...children) {
   return node;
 }
 
-// --- Day view (Today, or any past day from History) ---
+// --- Tagesansicht (Heute oder ein Tag aus dem Verlauf) ---
 
 async function renderDay(date) {
   const isToday = date === todayStr();
@@ -177,7 +153,7 @@ async function renderDay(date) {
   view.append(form);
 }
 
-// --- History ---
+// --- Verlauf ---
 
 function smoothPath(points) {
   if (points.length === 0) return "";
@@ -188,7 +164,7 @@ function smoothPath(points) {
     const p1 = points[i];
     const p2 = points[i + 1];
     const p3 = points[Math.min(points.length - 1, i + 2)];
-    // Catmull-Rom to cubic bezier
+    // Catmull-Rom zu kubischem Bezier
     const c1x = p1.x + (p2.x - p0.x) / 6;
     const c1y = p1.y + (p2.y - p0.y) / 6;
     const c2x = p2.x - (p3.x - p1.x) / 6;
@@ -219,7 +195,7 @@ function buildChart(options, history) {
           (W - pad.left - pad.right);
   const y = (v) => pad.top + (1 - v / 10) * (H - pad.top - pad.bottom);
 
-  // horizontal guides at 0 / 5 / 10
+  // Hilfslinien bei 0 / 5 / 10
   for (const v of [0, 5, 10]) {
     const line = document.createElementNS(svgNS, "line");
     line.setAttribute("x1", pad.left);
@@ -239,7 +215,7 @@ function buildChart(options, history) {
     svg.append(label);
   }
 
-  // x labels: first and last date
+  // x-Beschriftung: erstes und letztes Datum
   for (const [date, anchor, xpos] of [
     [dates[0], "start", pad.left],
     [dates[dates.length - 1], "end", W - pad.right],
@@ -255,7 +231,7 @@ function buildChart(options, history) {
       { month: "short", day: "numeric" }
     );
     svg.append(label);
-    if (dates.length === 1) break; // single date: one centered-ish label is enough
+    if (dates.length === 1) break;
   }
 
   for (const opt of options) {
@@ -318,7 +294,7 @@ async function renderHistory() {
 
   view.append(el("div", { class: "chart-card" }, legend, buildChart(options, history)));
 
-  // day list, newest first
+  // Tagesliste, neueste zuerst
   const byDate = new Map();
   for (const h of history) {
     if (!byDate.has(h.date)) byDate.set(h.date, []);
@@ -355,7 +331,7 @@ async function renderHistory() {
   }
 }
 
-// --- Settings ---
+// --- Einstellungen ---
 
 async function renderSettings() {
   const options = await api.options();
@@ -450,5 +426,18 @@ function route() {
     .forEach((a) => a.classList.toggle("active", a.dataset.route === routeName));
 }
 
-window.addEventListener("hashchange", route);
-route();
+async function main() {
+  try {
+    await api.init();
+  } catch (err) {
+    console.error(err);
+    view.replaceChildren(
+      el("p", { class: "empty-hint" }, err.message || "Verbindung zur Datenbank fehlgeschlagen.")
+    );
+    return;
+  }
+  window.addEventListener("hashchange", route);
+  route();
+}
+
+main();

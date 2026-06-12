@@ -6,25 +6,34 @@ Ein minimalistischer täglicher Stimmungs-Tracker. Warm, ruhig, Apple-like.
 - **Verlauf** — alle Einträge in einer nahtlosen Grafik, dazu eine Liste aller Tage. Tippe auf einen Tag, um ihn zu bearbeiten.
 - **Einstellungen** — Optionen hinzufügen, umbenennen, umfärben oder entfernen.
 
-## Einrichtung
+Die App ist **komplett statisch**: Der Browser spricht direkt mit der
+Turso-Datenbank. Es braucht keinen Server — jedes Webhosting reicht.
+
+## Entwicklung
 
 ```sh
 npm install
-cp .env.example .env   # dann den Turso-Token in .env eintragen
-npm start
+cp config.example.json config.json   # Turso-URL und -Token eintragen
+npm run build                        # erzeugt dist/
 ```
 
-Danach http://localhost:3000 öffnen.
+`dist/` mit einem beliebigen Webserver öffnen (z. B. via XAMPP:
+http://localhost/mood/dist/).
 
-Ohne `TURSO_AUTH_TOKEN` nutzt die App eine lokale SQLite-Datei (`local.db`),
-funktioniert also sofort. Für die Speicherung in Turso:
+## Deployment aufs Webhosting
 
-```sh
-turso db tokens create mood
-```
+1. `npm run build`
+2. Inhalt von `dist/` auf den Webspace laden (FTP oder via `dist`-Branch).
+3. **Einmalig von Hand** auf den Webspace legen (sind nicht im Git):
+   - `config.json` (Kopie von `config.example.json` mit echtem Token)
+   - Passwortschutz aktivieren — entweder Verzeichnisschutz im Control
+     Panel des Hosters oder die Vorlage in der mitgelieferten `.htaccess`
+     einkommentieren.
 
-und den Token in `.env` eintragen.
+**Wichtig:** `config.json` enthält den Turso-Token und darf nie ins Git —
+das Repo ist öffentlich. Sie ist in `.gitignore` eingetragen. Der Token ist
+im Browser einsehbar; deshalb ist der Passwortschutz dringend empfohlen.
 
 ## Stack
 
-Node.js + Express, [@libsql/client](https://github.com/tursodatabase/libsql-client-ts) (Turso / SQLite), Vanilla HTML/CSS/JS, handgebaute SVG-Grafik. Kein Build-Schritt.
+[@libsql/client/web](https://github.com/tursodatabase/libsql-client-ts) (Turso direkt aus dem Browser), Vanilla HTML/CSS/JS, handgebaute SVG-Grafik, esbuild als einziger Build-Schritt.
