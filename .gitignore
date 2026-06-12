@@ -1,7 +1,0 @@
-node_modules/
-dist/
-config.json
-.env
-local.db
-local.db-*
-.DS_Store
