@@ -50,15 +50,19 @@ async function migrate() {
       [
         {
           sql: "INSERT INTO options (name, color, position) VALUES (?, ?, ?)",
-          args: ["Stimmung", "#D08C60", 0],
+          args: ["Energie", "#D08C60", 0],
         },
         {
           sql: "INSERT INTO options (name, color, position) VALUES (?, ?, ?)",
-          args: ["Energie", "#A3B18A", 1],
+          args: ["Kognition/Geist", "#8E9AAF", 1],
         },
         {
           sql: "INSERT INTO options (name, color, position) VALUES (?, ?, ?)",
-          args: ["Schlaf", "#8E9AAF", 2],
+          args: ["Sensibilität", "#A3B18A", 2],
+        },
+        {
+          sql: "INSERT INTO options (name, color, position) VALUES (?, ?, ?)",
+          args: ["Schlaf", "#9C89B8", 3],
         },
       ],
       "write"
